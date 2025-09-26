@@ -2,7 +2,7 @@ import axios from 'axios';
 import toast from 'react-hot-toast';
 
 const api = axios.create({
-    baseURL: import.meta.env.VITE_BASEURL || 'https://vibe-tribe-beryl.vercel.app',
+    baseURL: import.meta.env.VITE_BASEURL || 'https://vibe-tribe-phi.vercel.app',
     // Remove withCredentials for Vercel deployment
     // withCredentials: true,
     headers: {
