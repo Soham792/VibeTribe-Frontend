@@ -2,12 +2,13 @@ import axios from 'axios';
 import toast from 'react-hot-toast';
 
 const api = axios.create({
-    baseURL: 'http://localhost:4000',
-    withCredentials: true,
+    baseURL: import.meta.env.VITE_BASEURL || 'https://vibe-tribe-beryl.vercel.app',
+    // Remove withCredentials for Vercel deployment
+    // withCredentials: true,
     headers: {
         'Content-Type': 'application/json'
     },
-    timeout: 10000 // 10 second timeout
+    timeout: 15000 // Increased timeout for serverless functions
 });
 
 // Request queue for handling multiple concurrent requests
@@ -105,4 +106,4 @@ api.interceptors.response.use(
     }
 );
 
-export default api
+export default api;
