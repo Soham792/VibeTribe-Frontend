@@ -1,34 +1,18 @@
 import axios from 'axios';
 import toast from 'react-hot-toast';
 
+const baseURL = import.meta.env.VITE_BASEURL || 'https://vibe-tribe-project.vercel.app';
+
 const api = axios.create({
-    baseURL: import.meta.env.VITE_BASEURL || 'https://vibe-tribe-phi.vercel.app',
-    // Remove withCredentials for Vercel deployment
-    // withCredentials: true,
+    baseURL,
     headers: {
         'Content-Type': 'application/json'
     },
-    timeout: 15000 // Increased timeout for serverless functions
+    timeout: 30000 // 30 seconds for serverless functions
 });
-
-// Request queue for handling multiple concurrent requests
-let isRefreshing = false;
-let failedQueue = [];
-
-const processQueue = (error, token = null) => {
-    failedQueue.forEach(prom => {
-        if (error) {
-            prom.reject(error);
-        } else {
-            prom.resolve(token);
-        }
-    });
-    failedQueue = [];
-};
 
 // Add token to every request
 api.interceptors.request.use(async (config) => {
-    // Don't override Content-Type for FormData
     if (config.data instanceof FormData) {
         delete config.headers['Content-Type'];
     }
@@ -42,62 +26,31 @@ api.interceptors.request.use(async (config) => {
         }
     } catch (error) {
         console.error('Error getting auth token:', error);
-        toast.error('Authentication error. Please try logging in again.');
     }
     
+    console.log(`🚀 API Request: ${config.method.toUpperCase()} ${baseURL}${config.url}`);
     return config;
 }, (error) => {
     return Promise.reject(error);
 });
 
-// Add response interceptor for error handling
+// Response interceptor
 api.interceptors.response.use(
-    (response) => response,
+    (response) => {
+        console.log(`✅ API Success: ${response.config.method.toUpperCase()} ${response.config.url}`);
+        return response;
+    },
     async (error) => {
-        const originalRequest = error.config;
-
-        // Handle timeout errors
+        console.error('❌ API Error:', error);
+        
         if (error.code === 'ECONNABORTED') {
             toast.error('Request timed out. Please try again.');
             return Promise.reject(error);
         }
 
-        // Handle network errors
         if (!error.response) {
-            toast.error('Network error. Please check your connection.');
+            toast.error('Cannot connect to server. Check your internet connection.');
             return Promise.reject(error);
-        }
-
-        // Handle authentication errors
-        if (error.response.status === 401 && !originalRequest._retry) {
-            if (isRefreshing) {
-                try {
-                    const token = await new Promise((resolve, reject) => {
-                        failedQueue.push({ resolve, reject });
-                    });
-                    originalRequest.headers.Authorization = `Bearer ${token}`;
-                    return api(originalRequest);
-                } catch (err) {
-                    return Promise.reject(err);
-                }
-            }
-
-            originalRequest._retry = true;
-            isRefreshing = true;
-
-            try {
-                const token = await window.Clerk?.session?.getToken();
-                if (token) {
-                    processQueue(null, token);
-                    return api(originalRequest);
-                }
-            } catch (refreshError) {
-                processQueue(refreshError, null);
-                toast.error('Session expired. Please login again.');
-                return Promise.reject(refreshError);
-            } finally {
-                isRefreshing = false;
-            }
         }
 
         const message = error.response?.data?.message || error.message || 'An error occurred';
